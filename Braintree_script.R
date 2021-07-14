@@ -270,6 +270,25 @@ sales_without_refounds <- credit_2_ID
 
 #####################################STARTING SALES##################################################
 
+#Numero di tentativi di acquisto per ordine
+
+trials_of_sale <- sales_without_refounds %>% select(`Order ID`)
+
+trials_of_sale <- trials_of_sale %>% group_by(`Order ID`) %>% summarize(count = n())
+
+trials_of_sale_table_numbers_of_trial <- trials_of_sale %>% group_by(count) %>% summarize(count = n())
+
+trials_of_sale_table_numbers_of_trial <- tibble::rownames_to_column(trials_of_sale_table_numbers_of_trial, "Valore")
+
+trials_of_sale_table_numbers_of_trial <- trials_of_sale_table_numbers_of_trial %>% select(-value)
+
+trials_of_sale_table_numbers_of_trial <- trials_of_sale_table_numbers_of_trial %>% mutate(Valore = as.factor(Valore))
+
+trials_of_sale_top_15 <- trials_of_sale %>% arrange(desc(count)) %>% slice(1:15)
+
+trials_of_sale_top_15_client_id <- merge(x= trials_of_sale_top_15, y=sales_without_refounds, by=c("Order ID"))
+
+
 #conteggio Credit Card/Paypal
 
 payment_instrument_type_sales <- sales_without_refounds %>% group_by(`Payment Instrument Type`) %>%
@@ -398,6 +417,15 @@ date_and_time_sales_1 <- date_and_time_sales_1 %>% mutate(Processing_Time = as.f
 
 ########################################GRAFICI SALES############################################## 
 
+#Grafico Distribuzione Tentativi di Pagamento/Ordine
+
+aaa <- aa <- ggplot(trials_of_sale_table_numbers_of_trial , aes(x = trials_of_sale_table_numbers_of_trial$Valore, y= trials_of_sale_table_numbers_of_trial$count, color = count, fill=count, width= count/10000)) +geom_bar(stat = "identity")+geom_text(aes(label = count), vjust = -0.3)+ theme_pubclean()+ labs(title="Numero di Tentativi per Ordine",x="Tipologia", y = "Frequenza")
+
+aaa_1 <- aaa + theme(axis.text.x = element_text(angle = 360, hjust = 1))
+
+aaa_1
+
+
 #Grafico Distribuzione Metodi di Pagamento
 
 aa <- ggplot(payment_instrument_type_sales, aes(x = payment_instrument_type_sales$`Payment Instrument Type`, y= payment_instrument_type_sales$count, color = count, fill=count, width= count/10000)) +geom_bar(stat = "identity")+geom_text(aes(label = count), vjust = -0.3)+ theme_pubclean()+ labs(title="Metodi di Pagamento Utilizzati dai clienti",x="Tipologia", y = "Frequenza")
@@ -450,6 +478,81 @@ e_1
 
 
 ##########################################################################################
+########################################TENTATIVI DI ORDINI RIPETUTI######################
+
+
+trials_of_sale_zoom <- merge(x= trials_of_sale, y=sales_without_refounds, by=c("Order ID"))
+
+trials_of_sale_zoom <- trials_of_sale_zoom %>% select(`Order ID`,count, `Payment Instrument Type`, `Card Type`,`Customer Email`,`Customer First Name`, `Customer Last Name`, `Created Datetime`, `Billing City (Locality)`, `Processor Response Text`, `Fraud Detected`, `Issuing Bank`, Prepaid,`Risk Decision`)
+
+trials_of_sale_zoom <- trials_of_sale_zoom %>% mutate(`Risk Decision`= ifelse(is.na(`Risk Decision`),0,`Risk Decision`))
+
+
+trials_of_sale_zoom_no_frodi <- trials_of_sale_zoom %>% filter(!(`Risk Decision`== "Deny" ))##errore
+
+trials_of_sale_zoom_no_frodi_top<- trials_of_sale_zoom_no_frodi %>% group_by(count) %>% summarize(count = n())
+
+trials_of_sale_zoom_no_frodi_top <- tibble::rownames_to_column(trials_of_sale_zoom_no_frodi_top, "Valore")
+
+#Numero di Tentativi per Ordine escludendo le frodi
+
+trials_of_sale_zoom_no_frodi_top <- trials_of_sale_zoom_no_frodi_top %>% mutate( Valore = as.factor(Valore))
+
+
+
+#Ordinamento Tentativi per Ordini Maggiori di 2 escludendo frodi 
+
+trials_of_sale_zoom_maggiori_1 <- trials_of_sale_zoom_no_frodi %>% filter(count > 1)
+
+trials_of_sale_zoom_maggiori_1_unici <-trials_of_sale_zoom_maggiori_1  %>% distinct(trials_of_sale_zoom_maggiori_1$`Order ID`, .keep_all = TRUE)
+
+trials_of_sale_zoom_maggiori_unici_top <- as.data.frame(table(trials_of_sale_zoom_maggiori_1_unici$count))
+
+trials_of_sale_zoom_maggiori_unici_top <- trials_of_sale_zoom_maggiori_unici_top %>% rename("Numero di Tentativi" = Var1, count = Freq)
+
+trials_of_sale_zoom_maggiori_unici_top <- trials_of_sale_zoom_maggiori_unici_top %>% mutate(`Numero di Tentativi`=as.factor(`Numero di Tentativi`))
+
+
+trials_of_sale_zoom_top_top <- trials_of_sale_zoom_maggiori_1 %>% group_by(count) %>% summarize(count = n()) 
+
+trials_of_sale_zoom_top_top <- tibble::rownames_to_column(trials_of_sale_zoom_top_top, "Valore")
+
+#conteggio Credit Card/Paypal Ordini >1 
+
+payment_instrument_type_sales_maj1 <- trials_of_sale_zoom_maggiori_1 %>% group_by(`Payment Instrument Type`) %>%
+  summarize(count = n())
+
+payment_instrument_type_sales_maj1 <- payment_instrument_type_sales_maj1 %>% mutate(`Payment Instrument Type`=as.factor(`Payment Instrument Type`))
+
+
+
+##########################################Grafici Ordini Escludendo le frodi############
+
+#Grafico Distribuzione Tentativi di Ordine Esclusi Frodi 
+
+bbb <- ggplot(trials_of_sale_zoom_no_frodi_top, aes(x=trials_of_sale_zoom_no_frodi_top$Valore, y=trials_of_sale_zoom_no_frodi_top$count, color=count, fill=count, width = count/10000))+geom_bar(stat = "identity")+geom_text(aes(label= count), vjust =-0.3)+theme_pubclean()+labs(title="Numero di Ordini Senza Frodi", x="Numero di Tentativi", y="Frequenza")
+
+bbb_1 <- bbb+theme(axis.text.x = element_text(angle = 360, hjust = 1))
+
+bbb_1
+
+#Grafico Distribuzione Tentativi di Ordine Maggiori di 1
+
+ccc <- ggplot(trials_of_sale_zoom_maggiori_unici_top, aes(x=trials_of_sale_zoom_maggiori_unici_top$`Numero di Tentativi`, y=trials_of_sale_zoom_maggiori_unici_top$count, color=count, fill=count, width = count/100))+geom_bar(stat = "identity")+geom_text(aes(label= count), vjust =-0.3)+theme_pubclean()+labs(title="Numero di Tentativi di Ordine Senza Frodi Maggiori di 1", x="Numero di Tentativi", y="Frequenza")
+
+ccc_1 <- ccc+theme(axis.text.x = element_text(angle = 360, hjust = 1))
+
+ccc_1
+
+
+#Grafico Distribuzione Tentativi di Pagamento/Ordine Maggiori di 1
+
+ddd  <- ggplot(payment_instrument_type_sales_maj1 , aes(x = payment_instrument_type_sales_maj1$`Payment Instrument Type`, y= payment_instrument_type_sales_maj1$count, color = count, fill=count, width= count/1000)) +geom_bar(stat = "identity")+geom_text(aes(label = count), vjust = -0.3)+ theme_pubclean()+ labs(title="Metodi di Pagamento utilizzati da chi ha effettuato più di un tentativo per ordine (escluse le frodi ed i resi)",x="Tipologia", y = "Frequenza")
+
+ddd_1 <- ddd + theme(axis.text.x = element_text(angle = 360, hjust = 1))
+
+ddd_1
+
 
 
 transactions_without_refounds <- brain_tree_for_manipulation[! brain_tree_for_manipulation$`Customer Email` %in% refounds_vector, ]
